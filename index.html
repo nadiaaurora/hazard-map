@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Peta PGA Kulon Progo</title>
+  <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+  <script src="https://api.mapbox.com/mapbox-gl-js/v3.1.0/mapbox-gl.js"></script>
+  <link href="https://api.mapbox.com/mapbox-gl-js/v3.1.0/mapbox-gl.css" rel="stylesheet" />
+  <style>
+    body { margin: 0; padding: 0; }
+    #map { position: absolute; top: 0; bottom: 0; width: 100%; }
+    #header {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 70px;
+      background: #003366;
+      color: white;
+      display: flex;
+      align-items: center;
+      padding: 0 15px;
+      font-family: 'Open Sans', sans-serif;
+      z-index: 3;
+    }
+    #header img {
+      height: 50px;
+      margin-right: 15px;
+    }
+    #header h1 {
+      font-size: 20px;
+      margin: 0;
+    } 
+    .legend {
+      position: absolute;
+      bottom: 30px;
+      left: 10px;
+      background: white;
+      padding: 10px;
+      font-family: Arial;
+      font-size: 12px;
+      border-radius: 6px;
+      box-shadow: 0 0 4px rgba(0,0,0,0.3);
+      max-height: 90%;
+      overflow-y: auto;
+    }
+    .legend h4 { margin: 4px 0; text-align: center; }
+    .color-box {
+      display: inline-block;
+      width: 20px;
+      height: 10px;
+      margin-right: 5px;
+    }
+    .checkbox-group {
+      margin-bottom: 6px;
+      padding-left: 10px;
+    }
+  </style>
+</head>
+<body>
+<div id="loading">Loading WebGIS...</div>
+<div id="header">
+  <img src="logo_ugm.png" alt="Logo UGM">
+  <h1>Peta Potensi Goncangan di Kulon Progo Berdasarkan Nilai PGA</h1>
+</div>
+
+<div id="map"></div>
+
+<div class="legend" id="legend">
+  <h4>Legenda Peta</h4>
+  <div><input type="checkbox" id="batasKP"> Batas Administrasi Kulon Progo</div>
+  <div><input type="checkbox" id="fasum"> Fasilitas Umum</div>
+  <div><input type="checkbox" id="sesaropak"> Garis Sesar Opak</div>
+  <div><input type="checkbox" id="sesarsermo"> Garis Sesar Sermo</div>
+
+  <hr>
+  <strong>Sumber Gempa Bumi</strong><br>
+  <div><input type="checkbox" id="sermo-toggle"> Sesar Sermo</div>
+  <div class="checkbox-group" id="sermo-options" style="display:none;">
+    <strong>Perulangan:</strong><br>
+    <div><input type="checkbox" class="sermo-period" data-period="50"> 50 Tahun</div>
+    <div><input type="checkbox" class="sermo-period" data-period="100"> 100 Tahun</div>
+    <div id="sermo-prob" style="display:none;">
+      <strong>Probabilitas:</strong><br>
+      <div><input type="checkbox" class="sermo-prob" data-prob="01"> 0.1</div>
+      <div><input type="checkbox" class="sermo-prob" data-prob="02"> 0.2</div>
+      <div><input type="checkbox" class="sermo-prob" data-prob="05"> 0.5</div>
+    </div>
+  </div>
+
+  <div><input type="checkbox" id="opak-toggle"> Sesar Opak</div>
+  <div class="checkbox-group" id="opak-options" style="display:none;">
+    <strong>Perulangan:</strong><br>
+    <div><input type="checkbox" class="opak-period" data-period="50"> 50 Tahun</div>
+    <div><input type="checkbox" class="opak-period" data-period="100"> 100 Tahun</div>
+    <div id="opak-prob" style="display:none;">
+      <strong>Probabilitas:</strong><br>
+      <div><input type="checkbox" class="opak-prob" data-prob="01"> 0.1</div>
+      <div><input type="checkbox" class="opak-prob" data-prob="02"> 0.2</div>
+      <div><input type="checkbox" class="opak-prob" data-prob="05"> 0.5</div>
+    </div>
+  </div>
+
+  <hr>
+  <strong>Tingkat Bahaya Gempa Bumi Berdasarkan Nilai PGA</strong><br>
+  <div><span class="color-box" style="background:yellow"></span>Rendah (0–0.26)</div>
+  <div><span class="color-box" style="background:orange"></span>Sedang (0.26–0.7)</div>
+  <div><span class="color-box" style="background:red"></span>Tinggi (>0.7)</div>
+</div>
+
+<script>
+mapboxgl.accessToken = 'pk.eyJ1IjoibmFkaWFzYWZhYXVyb3JhIiwiYSI6ImNseDJ3NGEwbzBybXgyaW9pdXpiNzhoNjEifQ.App12NjY_vjxookVmPAtLg';
+const map = new mapboxgl.Map({
+  container: 'map',
+  style: 'mapbox://styles/mapbox/light-v11',
+  center: [110.16, -7.8], // pusat Kulon Progo
+  zoom: 9.8
+});
+
+// --- URL RAW GITHUB SEMUA DATA ---
+const baseURL = 'https://raw.githubusercontent.com/nadiaaurora/hazard-map/main/';
+const sources = {
+  batasKP: baseURL + 'KulonProgo.geojson',
+  fasum: baseURL + 'Fasum.geojson',
+  sesarOpak: baseURL + 'SesarOpak.geojson',
+  sesarSermo: baseURL + 'SesarSermo.geojson',
+  sermo: {
+    '50_01': baseURL + 'Sermo50y_01.geojson',
+    '50_02': baseURL + 'Sermo50y_02.geojson',
+    '50_05': baseURL + 'Sermo50y_05.geojson',
+    '100_01': baseURL + 'Sermo100y_01.geojson',
+    '100_02': baseURL + 'Sermo100y_02.geojson',
+    '100_05': baseURL + 'Sermo100y_05.geojson'
+  },
+  opak: {
+    '50_01': baseURL + 'Opak50y_01.geojson',
+    '50_02': baseURL + 'Opak50y_02.geojson',
+    '50_05': baseURL + 'Opak50y_05.geojson',
+    '100_01': baseURL + 'Opak100y_01.geojson',
+    '100_02': baseURL + 'Opak100y_02.geojson',
+    '100_05': baseURL + 'Opak100y_05.geojson'
+  }
+};
+
+// --- Fungsi warna berdasarkan nilai PGA ---
+function getColor(value) {
+  if (value < 0.26) return 'yellow';
+  else if (value < 0.7) return 'orange';
+  else return 'red';
+}
+
+map.on('load', () => {
+  // --- Tambah sumber dan layer batas, fasum, sesar ---
+  map.addSource('batasKP', { type: 'geojson', data: sources.batasKP });
+  map.addLayer({
+    id: 'batasKP-layer',
+    type: 'line',
+    source: 'batasKP',
+    paint: { 'line-color': '#000', 'line-width': 2 },
+    layout: { visibility: 'none' }
+  });
+
+  map.addSource('fasum', { type: 'geojson', data: sources.fasum });
+  map.addLayer({
+    id: 'fasum-layer',
+    type: 'fill',
+    source: 'fasum',
+    paint: { 'fill-color': '#00BFFF', 'fill-opacity': 0.5, 'line-width': 1 },
+    layout: { visibility: 'none' }
+  });
+
+  map.addSource('sesarOpak', { type: 'geojson', data: sources.sesarOpak });
+  map.addLayer({
+    id: 'sesarOpak-layer',
+    type: 'line',
+    source: 'sesarOpak',
+    paint: { 'line-color': '#8B0000', 'line-width': 2 },
+    layout: { visibility: 'none' }
+  });
+
+  map.addSource('sesarSermo', { type: 'geojson', data: sources.sesarSermo });
+  map.addLayer({
+    id: 'sesarSermo-layer',
+    type: 'line',
+    source: 'sesarSermo',
+    paint: { 'line-color': '#FF00FF', 'line-width': 2 },
+    layout: { visibility: 'none' }
+  });
+
+  // --- Tambah semua layer PGA, disembunyikan dulu ---
+  for (const [sourceName, urls] of Object.entries(sources)) {
+    if (sourceName === 'sermo' || sourceName === 'opak') {
+      for (const [key, url] of Object.entries(urls)) {
+        const layerId = `${sourceName}_${key}`;
+        map.addSource(layerId, { type: 'geojson', data: url });
+        map.addLayer({
+          id: layerId,
+          type: 'circle',
+          source: layerId,
+          layout: { visibility: 'none' },
+          paint: {
+            'circle-color': [
+              'case',
+              ['<', ['get', 'value'], 0.26], 'yellow',
+              ['<', ['get', 'value'], 0.7], 'orange',
+              'red'
+            ],
+            'circle-opacity': 0.6
+          }
+        });
+      }
+    }
+  }
+
+  // --- kontrol interaktif ---
+  document.getElementById('batasKP').onchange = e =>
+    map.setLayoutProperty('batasKP-layer', 'visibility', e.target.checked ? 'visible' : 'none');
+  document.getElementById('fasum').onchange = e =>
+    map.setLayoutProperty('fasum-layer', 'visibility', e.target.checked ? 'visible' : 'none');
+
+  // ✅ Tambahkan event untuk garis sesar
+  document.getElementById('sesaropak').onchange = e =>
+    map.setLayoutProperty('sesarOpak-layer', 'visibility', e.target.checked ? 'visible' : 'none');
+  document.getElementById('sesarsermo').onchange = e =>
+    map.setLayoutProperty('sesarSermo-layer', 'visibility', e.target.checked ? 'visible' : 'none');
+
+  // --- Toggle menu sumber gempa ---
+  const sermoToggle = document.getElementById('sermo-toggle');
+  sermoToggle.onchange = () => {
+    document.getElementById('sermo-options').style.display = sermoToggle.checked ? 'block' : 'none';
+  };
+
+  const opakToggle = document.getElementById('opak-toggle');
+  opakToggle.onchange = () => {
+    document.getElementById('opak-options').style.display = opakToggle.checked ? 'block' : 'none';
+  };
+
+  // --- Klik periode memunculkan probabilitas ---
+  document.querySelectorAll('.sermo-period').forEach(cb => {
+    cb.addEventListener('change', () => {
+      document.getElementById('sermo-prob').style.display = document.querySelector('.sermo-period:checked') ? 'block' : 'none';
+    });
+  });
+  document.querySelectorAll('.opak-period').forEach(cb => {
+    cb.addEventListener('change', () => {
+      document.getElementById('opak-prob').style.display = document.querySelector('.opak-period:checked') ? 'block' : 'none';
+    });
+  });
+
+  // --- Menampilkan layer sesuai kombinasi pilihan ---
+  function updateLayers(prefix) {
+    const periodChecks = document.querySelectorAll(`.${prefix}-period:checked`);
+    const probChecks = document.querySelectorAll(`.${prefix}-prob:checked`);
+    for (const [key] of Object.entries(sources[prefix])) {
+      map.setLayoutProperty(`${prefix}_${key}`, 'visibility', 'none');
+    }
+    periodChecks.forEach(p => {
+      probChecks.forEach(pr => {
+        const id = `${prefix}_${p.dataset.period}_${pr.dataset.prob}`;
+        if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', 'visible');
+      });
+    });
+  }
+
+  document.querySelectorAll('.sermo-period, .sermo-prob').forEach(cb =>
+    cb.addEventListener('change', () => updateLayers('sermo')));
+  document.querySelectorAll('.opak-period, .opak-prob').forEach(cb =>
+    cb.addEventListener('change', () => updateLayers('opak')));
+
+  // --- Pastikan layer penting di atas layer PGA ---
+  function bringLayersToFront(layers) {
+    layers.forEach(layerId => {
+      if (map.getLayer(layerId)) map.moveLayer(layerId);
+    });
+  }
+
+  bringLayersToFront([
+    'batasKP-layer',
+    'fasum-layer',
+    'sesarOpak-layer',
+    'sesarSermo-layer'
+  ]);
+});
+
+</script>
+</body>
+</html>
