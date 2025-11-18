@@ -2,12 +2,19 @@
 <html>
 <head>
   <meta charset="utf-8" />
+  <meta name="viewport" content="width=1200">
   <title>Peta PGA Kulon Progo</title>
   <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
   <script src="https://api.mapbox.com/mapbox-gl-js/v3.1.0/mapbox-gl.js"></script>
   <link href="https://api.mapbox.com/mapbox-gl-js/v3.1.0/mapbox-gl.css" rel="stylesheet" />
   <style>
-    body { margin: 0; padding: 0; }
+    <style>
+    body, html {
+      margin: 0;
+      padding: 0;
+      min-width: 1200px;   /* mencegah layout mengecil di HP */
+      overflow-x: auto;    /* biar bisa scroll horizontal kalau layar kecil */
+    }
     #map { position: absolute; top: 0; bottom: 0; width: 100%; }
     #header {
       position: absolute; top: 0; left: 0; right: 0; height: 70px;
@@ -62,7 +69,7 @@
 
 <div id="header">
   <img src="logo_ugm.png" alt="Logo UGM">
-  <h1> Peta Potensi Goncangan di Kulon Progo Berdasarkan Nilai Peak Ground Acceleration</h1>
+  <h1> Peta Potensi Goncangan di Kulon Progo Berdasarkan Peak Ground Acceleration Akibat Gempa Bumi</h1>
 </div>
 
 <div id="map"></div>
@@ -152,7 +159,7 @@
  
 <!-- Legend kanan: Vs30 + PGA -->
 <div id="legend-right">
-  <strong> Tingkat Bahaya Gempa Bumi Berdasarkan Nilai PGA</strong><br>
+  <strong> Tingkat Bahaya Gempa Bumi Berdasarkan Nilai PGA (gals)</strong><br>
   <div><span class="color-box" style="background:yellow"></span> 0 – 0.26 (Rendah)</div>
   <div><span class="color-box" style="background:orange"></span> 0.26 – 0.7 (Sedang)</div>
   <div><span class="color-box" style="background:red"></span> > 0.7 (Tinggi)</div>
