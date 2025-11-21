@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=1200">
+  <title>Peta PGA Kulon Progo</title>
+  <script src="https://api.mapbox.com/mapbox-gl-js/v3.1.0/mapbox-gl.js"></script>
+  <link href="https://api.mapbox.com/mapbox-gl-js/v3.1.0/mapbox-gl.css" rel="stylesheet" />
+  <style>
+    <style>
+    body, html {
+      margin: 0;
+      padding: 0;
+      min-width: 1200px;   /* mencegah layout mengecil di HP */
+      overflow-x: auto;    /* biar bisa scroll horizontal kalau layar kecil */
+    }
+    #map { position: absolute; top: 0; bottom: 0; width: 100%; }
+    #header {
+      position: absolute; top: 0; left: 0; right: 0; height: 70px;
+      background: #003366; color: white; display: flex;
+      align-items: center; padding: 0 15px; font-family: 'Open Sans', sans-serif;
+      z-index: 3;
+    }
+    #header img { height: 50px; margin-right: 15px; }
+    #header h1 { font-size: 24px; margin: 0; }
+    .legend {
+      position: absolute; bottom: 30px; left: 10px; background: white; padding: 10px;
+      font-family: Arial; font-size: 14px; border-radius: 6px;
+      box-shadow: 0 0 4px rgba(0,0,0,0.3); max-height: 90%; overflow-y: auto;
+    }
+    .legend h4 { margin: 4px 0; text-align: center; }
+    .color-box { display: inline-block; width: 20px; height: 10px; margin-right: 5px; }
+    .checkbox-group { margin-bottom: 6px; padding-left: 10px; }
+
+    /* Legend kanan */
+    #legend-right {
+      position: fixed;
+	  top: 100px;
+      right: 20px;
+      background: rgba(255,255,255,0.9);
+      padding: 10px;
+      border-radius: 8px;
+      font-family: Arial, sans-serif;
+      font-size: 14px;
+      line-height: 1.5;
+      max-height: 80%;
+      overflow-y: auto;
+      box-shadow: 0 0 4px rgba(0,0,0,0.3);
+      z-index: 1000;
+    }
+
+    /* ======================================
+       SCROLLING POPUP MAPBOX – DITAMBAHKAN
+       ====================================== */
+    .mapboxgl-popup-content {
+      max-height: 320px !important;
+      overflow-y: auto !important;
+    }
+    .popup-scroll {
+      max-height: 300px;
+      overflow-y: auto;
+    }
+</style>
+
+</head>
+<body>
+<div id="loading">Loading WebGIS...</div>
+
+<div id="header">
+  <img src="logo_ugm.png" alt="Logo UGM">
+  <h1> Peta Potensi Goncangan di Kulon Progo Berdasarkan Peak Ground Acceleration Akibat Gempa Bumi</h1>
+</div>
+
+<div id="map"></div>
+
+<div class="legend" id="legend">
+  <h4>Legenda Peta</h4>
+  <div><input type="checkbox" id="batasKP"> Batas Administrasi Kulon Progo</div>
+  <div><input type="checkbox" id="fasum"> Fasilitas Umum</div>
+  <div><input type="checkbox" id="sesaropak"> Garis Sesar Opak</div>
+  <div><input type="checkbox" id="sesarsermo"> Garis Sesar Sermo</div>
+  <div><input type="checkbox" id="garismerapi"> Garis Sesar Merapi-Merbabu</div>
+  <div><input type="checkbox" id="GarisMegathrust"> Garis Megathrust</div>
+
+  <hr>
+  <strong>Peta Potensi Goncangan Berdasarkan Sumber Gempa</strong><br>
+
+  <!-- ALL -->
+  <div><input type="checkbox" id="all-toggle" class="sumber-checkbox"> Gabungan Semua Sumber</div>
+  <div class="checkbox-group" id="all-options" style="display:none;">
+    <strong>Periode Waktu:</strong><br>
+    <div><input type="checkbox" class="all-period" data-period="50"> 50 Tahun</div>
+    <div><input type="checkbox" class="all-period" data-period="100"> 100 Tahun</div>
+
+    <div id="all-prob" style="display:none;">
+      <strong>Peluang Terlampaui:</strong><br>
+      <div><input type="checkbox" class="all-prob" data-prob="0.02"> 0.02</div>
+      <div><input type="checkbox" class="all-prob" data-prob="0.05"> 0.05</div>
+      <div><input type="checkbox" class="all-prob" data-prob="0.1"> 0.1</div>
+    </div>
+  </div>
+
+  <!-- SERMO -->
+  <div><input type="checkbox" id="sermo-toggle" class="sumber-checkbox"> Sesar Sermo</div>
+  <div class="checkbox-group" id="sermo-options" style="display:none;">
+    <strong>Periode Waktu:</strong><br>
+    <div><input type="checkbox" class="sermo-period" data-period="50"> 50 Tahun</div>
+    <div id="sermo-prob" style="display:none;">
+      <strong>Peluang Terlampaui:</strong><br>
+      <div><input type="checkbox" class="sermo-prob" data-prob="0.02"> 0.02</div>
+    </div>
+  </div>
+
+  <!-- OPAK -->
+  <div><input type="checkbox" id="opak-toggle" class="sumber-checkbox"> Sesar Opak</div>
+  <div class="checkbox-group" id="opak-options" style="display:none;">
+    <strong>Periode Waktu:</strong><br>
+    <div><input type="checkbox" class="opak-period" data-period="50"> 50 Tahun</div>
+    <div id="opak-prob" style="display:none;">
+      <strong>Peluang Terlampaui:</strong><br>
+      <div><input type="checkbox" class="opak-prob" data-prob="0.02"> 0.02</div>
+    </div>
+  </div>
+ 
+ <!-- MERAPI-MERBABU -->
+  <div><input type="checkbox" id="merapi-toggle" class="sumber-checkbox"> Sesar Merapi-Merbabu</div>
+  <div class="checkbox-group" id="merapi-options" style="display:none;">
+    <strong>Periode Waktu:</strong><br>
+    <div><input type="checkbox" class="merapi-period" data-period="50"> 50 Tahun</div>
+    <div id="merapi-prob" style="display:none;">
+      <strong>Peluang Terlampaui:</strong><br>
+      <div><input type="checkbox" class="merapi-prob" data-prob="0.02"> 0.02</div>
+    </div>
+  </div>
+  
+  <!-- EAST MEGA -->
+  <div><input type="checkbox" id="east-toggle" class="sumber-checkbox"> East Megathrust</div>
+  <div class="checkbox-group" id="east-options" style="display:none;">
+    <strong>Periode Waktu:</strong><br>
+    <div><input type="checkbox" class="east-period" data-period="50"> 50 Tahun</div>
+    <div id="east-prob" style="display:none;">
+      <strong>Peluang Terlampaui:</strong><br>
+      <div><input type="checkbox" class="east-prob" data-prob="0.02"> 0.02</div>
+    </div>
+  </div>
+  
+  <!-- WEST MEGA -->
+  <div><input type="checkbox" id="west-toggle" class="sumber-checkbox"> West Megathrust</div>
+  <div class="checkbox-group" id="west-options" style="display:none;">
+    <strong>Periode Waktu:</strong><br>
+    <div><input type="checkbox" class="west-period" data-period="50"> 50 Tahun</div>
+    <div id="west-prob" style="display:none;">
+      <strong>Peluang Terlampaui:</strong><br>
+      <div><input type="checkbox" class="west-prob" data-prob="0.02"> 0.02</div>
+    </div>
+  </div>
+</div>
+ 
+<!-- Legend kanan: Vs30 + PGA -->
+<div id="legend-right">
+  <strong> Tingkat Bahaya Gempa Bumi Berdasarkan Nilai PGA (gals)</strong><br>
+  <div><span class="color-box" style="background:yellow"></span> 0 – 0.26 (Rendah)</div>
+  <div><span class="color-box" style="background:orange"></span> 0.26 – 0.7 (Sedang)</div>
+  <div><span class="color-box" style="background:red"></span> > 0.7 (Tinggi)</div>
+
+  <hr>
+  <div><input type="checkbox" id="vs30"><strong> Sebaran Nilai Vs30 (m/s)</strong></div>
+  <div><span class="color-box" style="background:#ff4500"></span>100 – 175</div>
+  <div><span class="color-box" style="background:#ffcc00"></span>176 – 250</div>
+  <div><span class="color-box" style="background:#adff2f"></span>251 – 350</div>
+  <div><span class="color-box" style="background:#32cd32"></span>351 – 450</div>
+  <div><span class="color-box" style="background:#00ced1"></span>451 – 550</div>
+  <div><span class="color-box" style="background:#1e90ff"></span>551 – 650</div>
+  <div><span class="color-box" style="background:#0000ff"></span>651 – 750</div>
+  <div><span class="color-box" style="background:#00008b"></span>751 – 1000</div>
+  <div><span class="color-box" style="background:#191970"></span>> 1000</div>
+</div>
+
+
+<script>
+mapboxgl.accessToken = 'pk.eyJ1IjoibmFkaWFzYWZhYXVyb3JhIiwiYSI6ImNseDJ3NGEwbzBybXgyaW9pdXpiNzhoNjEifQ.App12NjY_vjxookVmPAtLg';
+
+const map = new mapboxgl.Map({
+  container: 'map',
+  style: 'mapbox://styles/mapbox/light-v11',
+  center: [110.16, -7.75],
+  zoom: 9.42
+});
+
+const baseURL = 'https://raw.githubusercontent.com/nadiaaurora/hazard-map/main/';
+const sources = {
+  batasKP: baseURL + 'KulonProgo.geojson',
+  fasum: baseURL + 'Fasum.geojson',
+  sesarOpak: baseURL + 'SesarOpak.geojson',
+  sesarSermo: baseURL + 'SesarSermo.geojson',
+  garismerapi: baseURL + 'GarisMerapi.geojson',
+  garisMegathrust: baseURL + 'GarisMegathrust.geojson',
+  vs30: baseURL + 'Vs30Kulprog.geojson',
+
+  sermo: {
+    '50_0.02': baseURL + 'Sermo50y_0.02.geojson',
+  },
+
+  opak: {
+    '50_0.02': baseURL + 'Opak50y_0.02.geojson',
+  },
+  
+  merapi: {
+    '50_0.02': baseURL + 'MerapiMerbabu50_0.02.geojson',
+  },
+  
+  
+  east: {
+    '50_0.02': baseURL + 'Emega50_0.02.geojson',
+  },
+  
+  west: {
+    '50_0.02': baseURL + 'Wmega50_0.02.geojson',
+  },
+
+  all: {
+    '50_0.02': baseURL + 'All50y_0.02.geojson',
+    '50_0.05': baseURL + 'All50y_0.05.geojson',
+    '50_0.1': baseURL + 'All50y_0.1.geojson',
+    '100_0.02': baseURL + 'All100y_0.02.geojson',
+    '100_0.05': baseURL + 'All100y_0.05.geojson',
+    '100_0.1': baseURL + 'All100y_0.1.geojson',
+  }
+};
+
+function getColor(value) {
+  if (value < 0.26) return 'yellow';
+  else if (value < 0.7) return 'orange';
+  return 'red';
+}
+
+map.on('load', () => {
+
+  /* ----------------- BASIC LAYERS ------------------ */
+  map.addSource('batasKP', { type: 'geojson', data: sources.batasKP });
+  map.addLayer({
+    id: 'batasKP-layer', type: 'line', source: 'batasKP',
+    paint: { 'line-color': '#000', 'line-width': 2 }, layout: { visibility: 'none' }
+  });
+
+  map.addSource('fasum', { type: 'geojson', data: sources.fasum });
+  map.addLayer({
+    id: 'fasum-layer', type: 'fill', source: 'fasum',
+    paint: { 'fill-color': '#00BFFF', 'fill-opacity': 0.5 }, layout: { visibility: 'none' }
+  });
+
+  map.addSource('sesarOpak', { type: 'geojson', data: sources.sesarOpak });
+  map.addLayer({
+    id: 'sesarOpak-layer', type: 'line', source: 'sesarOpak',
+    paint: { 'line-color': '#8B0000', 'line-width': 2 }, layout: { visibility: 'none' }
+  });
+
+  map.addSource('sesarSermo', { type: 'geojson', data: sources.sesarSermo });
+  map.addLayer({
+    id: 'sesarSermo-layer', type: 'line', source: 'sesarSermo',
+    paint: { 'line-color': '#8B0000', 'line-width': 2 }, layout: { visibility: 'none' }
+  });
+  
+  map.addSource('garismerapi', { type: 'geojson', data: sources.garismerapi});
+  map.addLayer({
+    id: 'garismerapi-layer', type: 'line', source: 'garismerapi',
+    paint: { 'line-color': '#8B0000', 'line-width': 2 }, layout: { visibility: 'none' }
+  });
+
+  map.addSource('garisMegathrust', { type: 'geojson', data: sources.garisMegathrust });
+  map.addLayer({
+    id: 'garisMegathrust-layer', type: 'line', source: 'garisMegathrust',
+    paint: { 'line-color': '#8B0000', 'line-width': 2 }, layout: { visibility: 'none' }
+  });
+  
+  map.addSource('vs30', { type: 'geojson', data: sources.vs30 });
+  map.addLayer({
+    id: 'vs30-layer',
+    type: 'fill',
+    source: 'vs30',
+    paint: {
+        'fill-color': [
+            'interpolate',
+            ['linear'],
+            ['get', 'DN'],  // pastikan properti di geojson bernama 'value'
+            100, '#ff4500',   // merah/oranye
+            175, '#ffcc00',   // kuning
+            250, '#adff2f',   // hijau muda
+            350, '#32cd32',   // hijau tua
+            450, '#00ced1',   // biru muda
+            550, '#1e90ff',   // biru
+            650, '#0000ff',   // biru tua
+            750, '#00008b',   // navy
+            1000,'#191970',   // biru gelap
+            2000,'#191970'    // batas atas
+        ],
+        'fill-opacity': 0.7
+    },
+    layout: { visibility: 'none' }
+});
+
+
+  
+/* ============================================================
+      MARKER POPUP LOKASI (MUNCUL HANYA SAAT FASUM DICENTANG)
+   ============================================================ */
+
+const lokasi = [
+  {
+    koordinat: [110.06113966880385, -7.900471570674952],
+    nama: "Bandara YIA",
+    deskripsi: "Bandara YIA merupakan fasilitas vital yang menjadi pusat mobilitas nasional dan internasional.",
+    foto: "https://raw.githubusercontent.com/nadiaaurora/hazard-map/main/bandara.jpg"
+  },
+  {
+    koordinat: [110.11905187984047, -7.817353358270793],
+    nama: "Waduk Sermo",
+    deskripsi: "Waduk Sermo adalah infrastruktur penting yang memasok air baku, irigasi, serta menjaga fungsi konservasi di Kulon Progo. Kerusakan bendungan akibat gempa dapat memicu kegagalan struktur yang berpotensi menimbulkan banjir besar\.",
+    foto: "https://raw.githubusercontent.com/nadiaaurora/hazard-map/main/Sermo.jpeg.jpg"
+  },
+  {
+    koordinat: [110.2154484, -7.9822359],
+    nama: "Jembatan Pandansimo",
+    deskripsi: "Jembatan Pandansimo adalah jembatan pada ruas Jalan Lintas Selatan Jawa yang menghubungkan Kabupaten Bantul dan Kabupaten Kulon Progo di DI Yogyakarta. Jembatan ini menjadi akses vital bagi mobilitas warga, distribusi hasil perikanan, dan jalur evakuasi bencana di wilayah pesisir.",
+    foto: "https://raw.githubusercontent.com/nadiaaurora/hazard-map/main/Pandansimo.jpg"
+  }
+];
+
+// simpan semua marker
+const markersLokasi = [];
+
+// buat marker tetapi tidak langsung ditampilkan
+lokasi.forEach((lok) => {
+
+  // icon marker kecil merah
+const el = document.createElement('div');
+el.innerHTML = `
+  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" 
+       viewBox="0 0 24 24" fill="#9370DB">
+    <path d="M12 2C8.1 2 5 5.1 5 9c0 5.2 7 13 7 13s7-7.8 7-13c0-3.9-3.1-7-7-7zm0 9.5c-1.4 0-2.5-1.1-2.5-2.5S10.6 6.5 12 6.5s2.5 1.1 2.5 2.5S13.4 11.5 12 11.5z"/>
+  </svg>
+`;
+el.style.transform = "translate(-50%, -100%)"; // ujung pin ke titik koordinat
+el.style.cursor = "pointer";
+
+
+  const popupContent = `
+  <div class="popup-scroll" style="width:200px; max-height:200px; overflow-y:auto;">
+    <h3 style="margin:0">${lok.nama}</h3>
+    <p style="margin:4px 0;">${lok.deskripsi}</p>
+    <img src="${lok.foto}" alt="${lok.nama}" 
+         style="width:100%; border-radius:6px; margin-top:4px;">
+  </div>
+`;
+  const marker = new mapboxgl.Marker(el)
+    .setLngLat(lok.koordinat)
+    .setPopup(new mapboxgl.Popup({ offset: 10 }).setHTML(popupContent));
+
+  markersLokasi.push(marker);
+});
+
+
+  /* ----------------- LOAD SERMO & OPAK ------------------ */
+  for (const [sourceName, urls] of Object.entries(sources)) {
+    if (sourceName === 'sermo' || sourceName === 'opak' || sourceName === 'merapi' || sourceName === 'east'|| sourceName === 'west') {
+      for (const [key, url] of Object.entries(urls)) {
+        const layerId = `${sourceName}_${key}`;
+        map.addSource(layerId, { type: 'geojson', data: url });
+        map.addLayer({
+          id: layerId, type: 'circle', source: layerId,
+          layout: { visibility: 'none' },
+          paint: {
+            'circle-color': [
+              'case',
+              ['<', ['get', 'value'], 0.26], 'yellow',
+              ['<', ['get', 'value'], 0.7], 'orange',
+              'red'
+            ],
+            'circle-opacity': 0.6
+          }
+        });
+      }
+    }
+  }
+
+  /* ----------------- LOAD ALL LAYERS ------------------ */
+  for (const [key, url] of Object.entries(sources.all)) {
+    const layerId = `all_${key}`;
+    map.addSource(layerId, { type: 'geojson', data: url });
+    map.addLayer({
+      id: layerId,
+      type: 'circle',
+      source: layerId,
+      layout: { visibility: 'none' },
+      paint: {
+        'circle-color': [
+          'case',
+          ['<', ['get', 'value'], 0.26], 'yellow',
+          ['<', ['get', 'value'], 0.7], 'orange',
+          'red'
+        ],
+        'circle-opacity': 0.6
+      }
+    });
+  }
+
+  /* ----------------- TOGGLE LAYERS ------------------ */
+  document.getElementById('batasKP').onchange = e =>
+    map.setLayoutProperty('batasKP-layer', 'visibility', e.target.checked ? 'visible' : 'none');
+
+  document.getElementById('fasum').onchange = e => {
+    const visible = e.target.checked;
+
+    // toggle layer fasum
+    map.setLayoutProperty('fasum-layer', 'visibility', visible ? 'visible' : 'none');
+
+    // tampilkan atau sembunyikan marker lokasi
+    if (visible) markersLokasi.forEach(m => m.addTo(map));
+    else markersLokasi.forEach(m => m.remove());
+  };
+
+  document.getElementById('sesaropak').onchange = e =>
+    map.setLayoutProperty('sesarOpak-layer', 'visibility', e.target.checked ? 'visible' : 'none');
+
+  document.getElementById('sesarsermo').onchange = e =>
+    map.setLayoutProperty('sesarSermo-layer', 'visibility', e.target.checked ? 'visible' : 'none');
+
+  document.getElementById('garismerapi').onchange = e =>
+    map.setLayoutProperty('garismerapi-layer', 'visibility', e.target.checked ? 'visible' : 'none');
+
+  document.getElementById('GarisMegathrust').onchange = e =>
+    map.setLayoutProperty('garisMegathrust-layer', 'visibility', e.target.checked ? 'visible' : 'none');
+  document.getElementById('vs30').onchange = e =>
+    map.setLayoutProperty('vs30-layer', 'visibility', e.target.checked ? 'visible' : 'none');
+
+  /* ----------------- LIMITASI: 1 CHECKBOX PER GRUP ------------------ */
+  function limitSingleSelection(selector) {
+    document.querySelectorAll(selector).forEach(cb => {
+      cb.addEventListener('change', () => {
+        if (cb.checked) {
+          document.querySelectorAll(selector).forEach(other => {
+            if (other !== cb) other.checked = false;
+          });
+        }
+      });
+    });
+  }
+
+  limitSingleSelection('.all-period');
+  limitSingleSelection('.all-prob');
+  limitSingleSelection('.sermo-period');
+  limitSingleSelection('.sermo-prob');
+  limitSingleSelection('.opak-period');
+  limitSingleSelection('.opak-prob');
+  limitSingleSelection('.merapi-period');
+  limitSingleSelection('.merapi-prob');
+  limitSingleSelection('.east-period');
+  limitSingleSelection('.east-prob');
+  limitSingleSelection('.west-period');
+  limitSingleSelection('.west-prob');
+
+  /* ----------------- EXPAND OPTIONS ------------------ */
+
+  document.getElementById('sermo-toggle').onchange = e =>
+    document.getElementById('sermo-options').style.display =
+      e.target.checked ? 'block' : 'none';
+
+  document.querySelectorAll('.sermo-period').forEach(cb =>
+    cb.addEventListener('change', () =>
+      document.getElementById('sermo-prob').style.display =
+        document.querySelector('.sermo-period:checked') ? 'block' : 'none'
+    )
+  );
+
+  document.getElementById('opak-toggle').onchange = e =>
+    document.getElementById('opak-options').style.display =
+      e.target.checked ? 'block' : 'none';
+
+  document.querySelectorAll('.opak-period').forEach(cb =>
+    cb.addEventListener('change', () =>
+      document.getElementById('opak-prob').style.display =
+        document.querySelector('.opak-period:checked') ? 'block' : 'none'
+    )
+  );
+  
+  document.getElementById('merapi-toggle').onchange = e =>
+    document.getElementById('merapi-options').style.display =
+      e.target.checked ? 'block' : 'none';
+
+  document.querySelectorAll('.merapi-period').forEach(cb =>
+    cb.addEventListener('change', () =>
+      document.getElementById('merapi-prob').style.display =
+        document.querySelector('.merapi-period:checked') ? 'block' : 'none'
+    )
+  );
+  
+  document.getElementById('east-toggle').onchange = e =>
+    document.getElementById('eastoptions').style.display =
+      e.target.checked ? 'block' : 'none';
+
+  document.querySelectorAll('.east-period').forEach(cb =>
+    cb.addEventListener('change', () =>
+      document.getElementById('east-prob').style.display =
+        document.querySelector('.east-period:checked') ? 'block' : 'none'
+    )
+  );
+  
+  document.getElementById('west-toggle').onchange = e =>
+    document.getElementById('west-options').style.display =
+      e.target.checked ? 'block' : 'none';
+
+  document.querySelectorAll('.west-period').forEach(cb =>
+    cb.addEventListener('change', () =>
+      document.getElementById('west-prob').style.display =
+        document.querySelector('.west-period:checked') ? 'block' : 'none'
+    )
+  );
+
+  document.getElementById('all-toggle').onchange = e =>
+    document.getElementById('all-options').style.display =
+      e.target.checked ? 'block' : 'none';
+
+  document.querySelectorAll('.all-period').forEach(cb =>
+    cb.addEventListener('change', () =>
+      document.getElementById('all-prob').style.display =
+        document.querySelector('.all-period:checked') ? 'block' : 'none'
+    )
+  );
+
+  /* ----------------- EKSKLUSIF SUMBER ------------------ */
+  (function setupSumberExclusivity() {
+    const sumberCheckboxes = document.querySelectorAll('.sumber-checkbox');
+    sumberCheckboxes.forEach(cb => {
+      cb.addEventListener('change', function () {
+        if (this.checked) {
+          sumberCheckboxes.forEach(other => {
+            if (other !== this) {
+              if (other.checked) other.checked = false;
+
+              const otherOptions = document.getElementById(other.id.replace('-toggle', '-options'));
+              if (otherOptions) otherOptions.style.display = 'none';
+
+              const prefix = other.id.replace('-toggle', '');
+              if (sources[prefix]) {
+                for (const key of Object.keys(sources[prefix])) {
+                  const layerId = `${prefix}_${key}`;
+                  if (map.getLayer(layerId)) {
+                    map.setLayoutProperty(layerId, 'visibility', 'none');
+                  }
+                }
+              }
+            }
+          });
+
+          const myOptions = document.getElementById(this.id.replace('-toggle', '-options'));
+          if (myOptions) myOptions.style.display = 'block';
+
+        } else {
+          const myOptions = document.getElementById(this.id.replace('-toggle', '-options'));
+          if (myOptions) myOptions.style.display = 'none';
+
+          const prefix = this.id.replace('-toggle', '');
+          if (sources[prefix]) {
+            for (const key of Object.keys(sources[prefix])) {
+              const layerId = `${prefix}_${key}`;
+              if (map.getLayer(layerId)) {
+                map.setLayoutProperty(layerId, 'visibility', 'none');
+              }
+            }
+          }
+        }
+      });
+    });
+  })();
+
+  /* ----------------- UPDATE LAYERS ------------------ */
+  function updateLayers(prefix) {
+    const periods = document.querySelectorAll(`.${prefix}-period:checked`);
+    const probs = document.querySelectorAll(`.${prefix}-prob:checked`);
+
+    for (const [key] of Object.entries(sources[prefix])) {
+      const id = `${prefix}_${key}`;
+      if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', 'none');
+    }
+
+    periods.forEach(p => {
+      probs.forEach(pr => {
+        const id = `${prefix}_${p.dataset.period}_${pr.dataset.prob}`;
+        if (map.getLayer(id)) {
+          map.setLayoutProperty(id, 'visibility', 'visible');
+        }
+      });
+    });
+  }
+
+  document.querySelectorAll('.sermo-period, .sermo-prob')
+    .forEach(cb => cb.addEventListener('change', () => updateLayers('sermo')));
+
+  document.querySelectorAll('.opak-period, .opak-prob')
+    .forEach(cb => cb.addEventListener('change', () => updateLayers('opak')));
+	
+  document.querySelectorAll('.merapi-period, .merapi-prob')
+    .forEach(cb => cb.addEventListener('change', () => updateLayers('merapi')));
+	
+  document.querySelectorAll('.east-period, .east-prob')
+    .forEach(cb => cb.addEventListener('change', () => updateLayers('east')));
+	
+  document.querySelectorAll('.west-period, .west-prob')
+    .forEach(cb => cb.addEventListener('change', () => updateLayers('west')));
+
+  document.querySelectorAll('.all-period, .all-prob')
+    .forEach(cb => cb.addEventListener('change', () => updateLayers('all')));
+
+  /* ----------------- FRONT LAYERS ------------------ */
+  function bringLayersToFront(layers) {
+    layers.forEach(layerId => {
+      if (map.getLayer(layerId)) map.moveLayer(layerId);
+    });
+  }
+
+  bringLayersToFront([
+    'batasKP-layer',
+    'fasum-layer',
+    'sesarOpak-layer',
+    'sesarSermo-layer',
+	'garismerapi-layer',
+    'garisMegathrust-layer',
+	'vs30-layer'
+  ]);
+
+});
+</script>
+</body>
+</html>
